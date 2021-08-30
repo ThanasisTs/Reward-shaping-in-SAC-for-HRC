@@ -1,9 +1,7 @@
-class Model():
-	def __init__(self):
-		pass
+import torch
 
-	def arg1(self, x):
-		return x
+a = [1, 2, 3, 4, 5, 6, 7, 8]
 
+b = torch.utils.data.DataLoader(dataset=a)
 
-print(Model(5))
+print(next(iter(b)))

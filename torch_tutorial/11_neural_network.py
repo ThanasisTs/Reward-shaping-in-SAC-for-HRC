@@ -14,9 +14,9 @@ import torchvision
 import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
 import sys
-from torch.utils.tensorboard import SummaryWriter
+# from torch.utils.tensorboard import SummaryWriter
 
-writer = SummaryWriter("runs/mnist")
+# writer = SummaryWriter("runs/mnist")
 
 # device config
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -56,9 +56,9 @@ for i in range(6):
 	plt.subplot(2, 3, i+1)
 	plt.imshow(samples[i][0], cmap='gray')
 # plt.show()
-img_grid = torchvision.utils.make_grid(samples)
-writer.add_image('mnist_images', img_grid)
-writer.close()
+# img_grid = torchvision.utils.make_grid(samples)
+# writer.add_image('mnist_images', img_grid)
+# writer.close()
 
 
 class NeuralNet(nn.Module):
@@ -74,14 +74,14 @@ class NeuralNet(nn.Module):
 		out = self.l2(out)
 		return out
 
-model = NeuralNet(input_size, hidden_size, num_classes)
+model = NeuralNet(input_size, hidden_size, num_classes).to(device)
 
 # loss and optimizer
 criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
-writer.add_graph(model, samples.reshape(-1, 28*28))
-sys.exit()
+# writer.add_graph(model, samples.reshape(-1, 28*28))
+# sys.exit()
 
 
 # training loop

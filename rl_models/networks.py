@@ -108,3 +108,32 @@ class ActorNetwork(nn.Module):
 		self.mu = nn.Linear(self.fc2_dims, self.n_actions)
 		self.sigma = nn.Linear(self.fc2_dims, self.n_actions)
 	
+	# policy: a probability distibution that tells you the probability of selecting any action
+	# from the action space given a state or a set of states
+	def sample_normal(self, state, reparameterize=True):
+		mu, sigma = self.forward(state)
+		probabilities = Normal(mu, sigma)
+
+		if reparameterize:
+			actions = probabilities.rsample() # sample + some noise
+		else:
+			actions = probabilities.sample() # sample without noise
+
+		# set the actions to the [-1, 1] range and then denormalize them by the max_action 
+		action = torch.tanh(actions)*torch.tensor(self.max_action).to(self.device)
+		
+		# the log probabilities are used by the loss function 
+		log_probs = probabilities.log_prob(actions)
+		log_probs -= torch.log(1-action.pow(2) + self.reparam_noise)
+
+		# scalar quantity for the calculation of the loss
+		log_probs = log_probs.sum(1, keepdim=True)
+
+		return action, log_probs
+
+	def save_checkpoint(self):
+		torch.save(self.state_dict(), self.checkpoint_file)
+
+	def load_checkpoint(self):
+		self.load_state_dict(torch.load(self.checkpoint_file))
+	

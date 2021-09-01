@@ -8,12 +8,12 @@ def scaled_dim(image, scale):
 	img_size = image.get_size()
 	return (int(np.ceil(scale*img_size[0])), int(np.ceil(scale*img_size[1])))
 
-def goal_dis(x, y):
-	return distance.euclidean((x, y), end_pos)
+def goal_dis(pos):
+	return distance.euclidean(pos, end_pos)
 
 def reset_game(first_time = False):
-	global current_x, current_y, keys_pressed, event, timeout
-	current_x, current_y = start_pos[0], start_pos[1]
+	global current_pos, keys_pressed, event, timeout
+	current_pos = list(start_pos)
 	keys_pressed = [0, 0, 0, 0]
 	i = 0
 	if not first_time:
@@ -30,7 +30,7 @@ def reset_game(first_time = False):
 		pg.draw.circle(screen, start_color, start_pos, radius)
 		pg.draw.circle(screen, end_color, end_pos, radius)
 		pg.draw.line(screen, line_color, start_pos, end_pos)
-		pg.draw.circle(screen, circle_color, (current_x, current_y), 5)
+		pg.draw.circle(screen, circle_color, current_pos, 5)
 		screen.blit(list(images.values())[4-i], (50, 150))
 		i += 1
 		pg.display.flip()
@@ -42,7 +42,7 @@ def reset_game(first_time = False):
 	pg.event.clear()
 
 def getKeyboard(delay=10):
-	global current_x, current_y, keys, keys_pressed
+	global current_pos, keys, keys_pressed
 	pg.key.set_repeat(delay)
 	for event in pg.event.get():
 		if event.type == pg.QUIT:
@@ -54,11 +54,10 @@ def getKeyboard(delay=10):
 			if event.key in keys:
 				keys_pressed[keys[event.key]] = 0
 
-		current_y -= keys_pressed[0]
-		current_y += keys_pressed[1]
-
-		current_x -= keys_pressed[2]
-		current_x += keys_pressed[3]
+		current_pos[1] += keys_pressed[1] - keys_pressed[0]
+		current_pos[0] += keys_pressed[3] - keys_pressed[2]
+		current_pos = np.clip(current_pos, min_pos, max_pos)
+		
 
 pg.init()
 
@@ -75,7 +74,7 @@ radius = 30
 
 line_color = (0, 0, 255)
 
-update_pos = 2
+min_pos, max_pos = 100, 700
 
 run = True
 keys = {pg.K_UP : 0, pg.K_DOWN : 1, pg.K_LEFT : 2, pg.K_RIGHT : 3}
@@ -83,7 +82,7 @@ keys = {pg.K_UP : 0, pg.K_DOWN : 1, pg.K_LEFT : 2, pg.K_RIGHT : 3}
 circle_color = (255, 165, 0)
 keys_pressed = [0, 0, 0, 0]
 delay = 15
-current_x, current_y = start_pos[0], start_pos[1]
+current_pos = list(start_pos)
 
 images = {}
 for img in os.listdir('images'):
@@ -103,14 +102,14 @@ while run:
 	pg.draw.circle(screen, start_color, start_pos, radius)
 	pg.draw.circle(screen, end_color, end_pos, radius)
 	pg.draw.line(screen, line_color, start_pos, end_pos)
-	pg.draw.circle(screen, circle_color, (current_x, current_y), 5)
+	pg.draw.circle(screen, circle_color, current_pos, 5)
 
 	getKeyboard(delay)
 
 	if time.time() - start_game_time >= 10:
 		timeout = True
 
-	if goal_dis(current_x, current_y) < 10 or timeout:
+	if goal_dis(current_pos) < 10 or timeout:
 		reset_game()
 		start_game_time = time.time()
 

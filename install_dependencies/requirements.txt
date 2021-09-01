@@ -7,3 +7,5 @@ sklearn
 matplotlib
 pygame
 tensorboard
+pybullet
+gym

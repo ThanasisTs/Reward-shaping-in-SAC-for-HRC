@@ -2,19 +2,22 @@ import os
 import pygame as pg
 import numpy as np
 from scipy.spatial import distance
+import random
 import time
+import matplotlib.pyplot as plt
 
 def scaled_dim(image, scale):
 	img_size = image.get_size()
 	return (int(np.ceil(scale*img_size[0])), int(np.ceil(scale*img_size[1])))
 
-def goal_dis(x, y):
-	return distance.euclidean((x, y), end_pos)
+def goal_dis(pos):
+	return distance.euclidean(pos, end_pos)
 
 def reset_game(first_time = False):
-	global current_x, current_y, keys_pressed, event, timeout
-	current_x, current_y = start_pos[0], start_pos[1]
-	keys_pressed = [0, 0, 0, 0]
+	global current_pos, actions, event, timeout, trail
+	current_pos = list(start_pos)
+	actions = [0, 0, 0, 0]
+	trail = []
 	i = 0
 	if not first_time:
 		if timeout:
@@ -30,7 +33,7 @@ def reset_game(first_time = False):
 		pg.draw.circle(screen, start_color, start_pos, radius)
 		pg.draw.circle(screen, end_color, end_pos, radius)
 		pg.draw.line(screen, line_color, start_pos, end_pos)
-		pg.draw.circle(screen, circle_color, (current_x, current_y), 5)
+		pg.draw.circle(screen, circle_color, current_pos, 5)
 		screen.blit(list(images.values())[4-i], (50, 150))
 		i += 1
 		pg.display.flip()
@@ -41,29 +44,47 @@ def reset_game(first_time = False):
 	time.sleep(1)
 	pg.event.clear()
 
-def getKeyboard(delay=10):
-	global current_x, current_y, keys, keys_pressed
+def plot(trail):
+	fig = plt.figure()
+	ax = plt.axes()
+	ax.plot(*list(zip(*trail)), c='red')
+	ax.grid()
+	ax.set_xlabel('x')
+	ax.set_ylabel('y')
+	ax.set_xlim(min_pos, max_pos)
+	ax.set_ylim(min_pos, max_pos)
+	ax.invert_yaxis()
+	plt.show()
+
+def getRandomAction():
+	global actions, random_actions
+	random_action = random.choice(random_actions)
+	if random_action == 1:
+		actions[2] = 1
+	elif random_action == -1:
+		actions[3] = 1
+	else:
+		actions[2:] = [0, 0]
+
+def getHumanAction(delay=10):
+	global keys_human, actions
 	pg.key.set_repeat(delay)
 	for event in pg.event.get():
 		if event.type == pg.QUIT:
 			run = False
 		if event.type == pg.KEYDOWN:
-			if event.key in keys:
-				keys_pressed[keys[event.key]] = 1
+			if event.key in keys_human:
+				actions[keys_human[event.key]] = 1
 		if event.type == pg.KEYUP:
-			if event.key in keys:
-				keys_pressed[keys[event.key]] = 0
-
-		current_y -= keys_pressed[0]
-		current_y += keys_pressed[1]
-
-		current_x -= keys_pressed[2]
-		current_x += keys_pressed[3]
+			if event.key in keys_human:
+				actions[keys_human[event.key]] = 0
 
 pg.init()
 
 display = (800, 800)
 screen = pg.display.set_mode(display)
+
+sleep_rate = 0.01
 
 start_pos = (100, 700)
 start_color = (0, 255, 0)
@@ -75,15 +96,16 @@ radius = 30
 
 line_color = (0, 0, 255)
 
-update_pos = 2
+min_pos, max_pos = 100, 700
 
 run = True
-keys = {pg.K_UP : 0, pg.K_DOWN : 1, pg.K_LEFT : 2, pg.K_RIGHT : 3}
+keys_human = {pg.K_UP : 0, pg.K_DOWN : 1}
+random_actions = [-1, 0, 1]
 
 circle_color = (255, 165, 0)
-keys_pressed = [0, 0, 0, 0]
+actions = [0, 0, 0, 0]
 delay = 15
-current_x, current_y = start_pos[0], start_pos[1]
+current_pos = list(start_pos)
 
 images = {}
 for img in os.listdir('images'):
@@ -97,20 +119,29 @@ timeout = False
 
 reset_game(first_time = True)
 start_game_time = time.time()
+trail = []
 
 while run:
+	time.sleep(sleep_rate)
 	screen.fill((105,105,105))
 	pg.draw.circle(screen, start_color, start_pos, radius)
 	pg.draw.circle(screen, end_color, end_pos, radius)
 	pg.draw.line(screen, line_color, start_pos, end_pos)
-	pg.draw.circle(screen, circle_color, (current_x, current_y), 5)
+	pg.draw.circle(screen, circle_color, current_pos, 5)
 
-	getKeyboard(delay)
+	getRandomAction()
+	getHumanAction(delay)
 
-	if time.time() - start_game_time >= 10:
+	current_pos[1] += actions[1] - actions[0]
+	current_pos[0] += actions[3] - actions[2]
+	current_pos = np.clip(current_pos, min_pos, max_pos)
+	trail.append(current_pos)
+
+	if time.time() - start_game_time >= 2:
 		timeout = True
 
-	if goal_dis(current_x, current_y) < 10 or timeout:
+	if goal_dis(current_pos) < 10 or timeout:
+		plot(trail)
 		reset_game()
 		start_game_time = time.time()
 

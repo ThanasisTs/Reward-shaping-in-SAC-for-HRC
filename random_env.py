@@ -1,5 +1,5 @@
 # one direction if controlled by the human
-# the other by a SAC agent
+# the other by a random agent
 import os
 import pygame as pg
 import numpy as np
@@ -7,12 +7,6 @@ from scipy.spatial import distance
 import random
 import time
 import matplotlib.pyplot as plt
-
-class ActionSpace:
-	def __init__(self):
-		self.actions = [i for i in range(3)]
-		self.shape = 2
-		self.n_actions = len(self.actions)
 
 class Game:
 	def __init__(self):
@@ -36,14 +30,13 @@ class Game:
 		self.min_pos, self.max_pos = 100, 700
 
 		self.running = True
-		self.keys = {pg.K_UP : 0, pg.K_DOWN : 1}
+		self.keys_human = {pg.K_UP : 0, pg.K_DOWN : 1}
 		self.random_actions = [-1, 0, 1]
 
 		self.circle_color = (255, 165, 0)
 		self.actions = [0, 0, 0, 0]
 		self.delay = 15
 		self.current_pos = list(self.start_pos)
-		self.current_vel = [0, 0]
 		self.win_dis = 10
 
 		self.images = {}
@@ -57,16 +50,10 @@ class Game:
 		self.timeout = False
 		self.first_time = True
 
+		self.reset_game()
 		self.start_game_time = time.time()
 		self.trail = []
-		self.max_duration = 10
 
-		self.observation = self.get_state()
-		self.action_space = ActionSpace()
-		self.observation_space = (len(self.observation),)
-
-	def get_state(self):
-		return np.concatenate((self.current_pos, self.current_vel), axis=None)
 
 	def scaled_dim(self, image, scale):
 		img_size = image.get_size()
@@ -79,7 +66,6 @@ class Game:
 		self.current_pos = list(self.start_pos)
 		self.actions = [0, 0, 0, 0]
 		self.trail = []
-		self.done = False
 		i = 0
 		if not self.first_time:
 			if self.timeout:
@@ -89,7 +75,6 @@ class Game:
 				self.screen.blit(list(self.images.values())[-3], (50, 150))
 			pg.display.flip()
 			time.sleep(3)
-		else:
 			self.first_time = False
 		self.start_time = time.time()
 		while time.time() - self.start_time <= 5:
@@ -121,31 +106,54 @@ class Game:
 		ax.invert_yaxis()
 		plt.show()
 
-	def step(self, action):
-		self.current_vel = action
-		if self.first_time:
-			self.reset_game()
+	def getRandomAction(self):
+		random_action = random.choice(self.random_actions)
+		if random_action == 1:
+			self.actions[2] = 1
+		elif random_action == -1:
+			self.actions[3] = 1
+		else:
+			self.actions[2:] = [0, 0]
 
-		time.sleep(self.sleep_rate)
-		self.screen.fill((105,105,105))
-		pg.draw.circle(self.screen, self.start_color, self.start_pos, self.radius)
-		pg.draw.circle(self.screen, self.end_color, self.end_pos, self.radius)
-		pg.draw.line(self.screen, self.line_color, self.start_pos, self.end_pos)
-		pg.draw.circle(self.screen, self.circle_color, self.current_pos, 5)
+	def getHumanAction(self):
+		pg.key.set_repeat(self.delay)
+		for event in pg.event.get():
+			if event.type == pg.QUIT:
+				self.running = False
+			if event.type == pg.KEYDOWN:
+				if event.key in self.keys_human:
+					self.actions[self.keys_human[event.key]] = 1
+			if event.type == pg.KEYUP:
+				if event.key in self.keys_human:
+					self.actions[self.keys_human[event.key]] = 0
 
-		self.current_pos[0] += self.current_vel[0]
-		self.current_pos[1] += self.current_vel[1]
-		self.current_pos = np.clip(self.current_pos, self.min_pos, self.max_pos)
-		self.trail.append(self.current_pos)
+	def run(self):
+		while self.running:
+			time.sleep(self.sleep_rate)
+			self.screen.fill((105,105,105))
+			pg.draw.circle(self.screen, self.start_color, self.start_pos, self.radius)
+			pg.draw.circle(self.screen, self.end_color, self.end_pos, self.radius)
+			pg.draw.line(self.screen, self.line_color, self.start_pos, self.end_pos)
+			pg.draw.circle(self.screen, self.circle_color, self.current_pos, 5)
 
-		if self.goal_dis() < self.win_dis or self.timeout:
-			self.done = True
+			self.getRandomAction()
+			self.getHumanAction()
 
-		pg.display.flip()
-		reward = 1
-		return self.get_state(), reward, self.done
+			self.current_pos[1] += self.actions[1] - self.actions[0]
+			self.current_pos[0] += self.actions[3] - self.actions[2]
+			self.current_pos = np.clip(self.current_pos, self.min_pos, self.max_pos)
+			self.trail.append(self.current_pos)
+
+			if time.time() - self.start_game_time >= 2:
+				self.timeout = True
+
+			if self.goal_dis() < self.win_dis or self.timeout:
+				self.plot()
+				self.reset_game()
+
+			pg.display.flip()
 
 
-# if __name__ == '__main__':
-# 	game = Game()
-# 	game.step()
+if __name__ == '__main__':
+	game = Game()
+	game.run()

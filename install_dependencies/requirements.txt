@@ -9,3 +9,5 @@ pygame
 tensorboard
 pybullet
 gym
+pyyaml
+tqdm

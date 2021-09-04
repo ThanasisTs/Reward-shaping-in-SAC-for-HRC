@@ -228,9 +228,6 @@ class Experiment:
 			if not flag:
 				print("Using SAC Agent")
 				flag = True
-		if self.agent_action == 2:
-			self.agent_action = -1
-
 		return flag
 
 	def get_agent_only_action(self):

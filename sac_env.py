@@ -122,7 +122,9 @@ class Game:
 		plt.show()
 
 	def step(self, action):
-		self.current_vel = action
+		self.current_vel = np.array(action)
+		self.current_vel[self.current_vel==2] = -1
+		
 		if self.first_time:
 			self.reset_game()
 

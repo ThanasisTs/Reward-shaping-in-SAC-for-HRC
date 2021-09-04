@@ -1,7 +1,6 @@
 numpy
 pandas
-torch
-torchvision
+torch==1.4.0
 scipy
 sklearn
 matplotlib

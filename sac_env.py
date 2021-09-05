@@ -122,11 +122,12 @@ class Game:
 		plt.show()
 
 	def step(self, action):
+		if self.first_time:
+			self.reset_game()
+			
 		self.current_vel = np.array(action)
 		self.current_vel[self.current_vel==2] = -1
 		
-		if self.first_time:
-			self.reset_game()
 
 		time.sleep(self.sleep_rate)
 		self.screen.fill((105,105,105))

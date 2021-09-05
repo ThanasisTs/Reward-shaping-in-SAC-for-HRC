@@ -41,13 +41,17 @@ Experiment:
 
   # Max episodes mode
   max_episodes: 70  # Total episodes per game
-  max_duration: 0.5  # Max duration of an episode (in seconds). An episode ends if the ball hits the target or if we reach the time limit
+  max_duration: 40  # Max duration of an episode (in seconds). An episode ends if the ball hits the target or if we reach the time limit
   buffer_max_size: 1000000
   action_duration: 0.2 # Time duration between consecutive RL agent actions
-  start_training_on_episode: 1 # Will not train the agent before this trial
+  start_training_on_episode: 10 # Will not train the agent before this trial
   stop_random_agent: 10 # Stop using random agent on this trial and start using SAC
-  learn_every_n_episodes: 1 # Perform offline gradient updates after every `learn_every_n_episodes` episodes
+  learn_every_n_episodes: 10 # Perform offline gradient updates after every `learn_every_n_episodes` episodes
   total_update_cycles: 28000 # Total number of offline gradient updates throughout the whole experiment
   reward_scale: 2
   log_interval: 10  # Print avg reward in the interval
+
+  test:
+    max_episodes: 10
+    max_duration: 40
 

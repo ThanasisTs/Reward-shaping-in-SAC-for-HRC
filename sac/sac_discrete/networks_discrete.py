@@ -77,6 +77,7 @@ class Actor(nn.Module):
         super(Actor, self).__init__()
         self.checkpoint_dir = chkpt_dir
         self.checkpoint_file = os.path.join(self.checkpoint_dir, name + '_sac')
+        os.makedirs(self.checkpoint_dir, exist_ok=True)
         self.name = name
         self.actor_mlp = nn.Sequential(
             nn.Linear(state_dim, n_hidden_units),
@@ -118,6 +119,7 @@ class Critic(nn.Module):
         self.checkpoint_dir = chkpt_dir
         if chkpt_dir is not None:
             self.checkpoint_file = os.path.join(self.checkpoint_dir, name + '_sac')
+            os.makedirs(self.checkpoint_dir, exist_ok=True)
         self.qnet1 = DuelQNet(state_dim, action_dim, n_hidden_units)
         self.qnet2 = DuelQNet(state_dim, action_dim, n_hidden_units)
 
@@ -140,6 +142,8 @@ class DuelQNet(nn.Module):
         self.checkpoint_dir = chkpt_dir
         if chkpt_dir is not None:
             self.checkpoint_file = os.path.join(self.checkpoint_dir, name + '_sac')
+            os.makedirs(self.checkpoint_dir, exist_ok=True)
+
         self.shared_mlp = nn.Sequential(
             nn.Linear(state_dim, n_hidden_units),
             nn.ReLU(),

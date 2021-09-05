@@ -12,45 +12,22 @@ class Experiment:
 		self.agent = agent
 		self.best_score = None
 		self.best_game_reward = None
-		self.best_score_episode = -1
-		self.best_score_length = -1
 		self.total_steps = 0
 		self.action_history = []
 		self.score_history = []
 		self.game_duration_list = []
-		self.length_list = []
 		self.grad_updates_durations = []
-		self.test_length_list = []
 		self.test_score_history = []
 		self.test_game_duration_list = []
 		if load_models:
 			self.agent.load_models()
-		self.max_episodes = None
-		self.max_timesteps = None
 		self.avg_grad_updates_duration = 0
 		self.human_actions = [0, 0]
 		self.agent_actions = [0, 0]
-		self.total_timesteps = None
-		self.max_timesteps_per_game = None
 		self.save_models = None
-		self.game = None
-		self.update_cycles = None
-		self.distane_travel_list = []
-		self.reward_list = []
-		self.test_reward_list = []
-		self.last_time = 0
-		self.key_pressed_count = 0
-		self.last_pressed = None
-
-
-	def run(self):
-		flag = True
-		current_timestep = 0 # current timestep for each game
-		running_reward = 0 # total cumulative reward across all games
-		avg_length = 0
-
+		self.avg_length = 0
+		self.update_cycles = np.ceil(self.config['Experiment']['total_update_cycles'])
 		self.action_duration = self.config['Experiment']['action_duration']
-
 		self.max_episodes = self.config['Experiment']['max_episodes']
 
 		# The max number of timesteps depends on the maximum episode duration. Each loop (human action, agent action,
@@ -58,40 +35,54 @@ class Experiment:
 		self.max_timesteps = int(self.config['Experiment']['max_duration']/0.016)
 		self.best_score = -100 -1 * self.max_timesteps
 		self.best_game_reward = self.best_score
+		self.randomness_threshold = self.config['Experiment']['stop_random_agent']
+		self.test_agent_flag = False
+		self.log_interval = self.config['Experiment']['log_interval']
 
+		self.test_max_episodes = self.config['Experiment']['test']['max_episodes']
+
+		# The max number of timesteps depends on the maximum episode duration. Each loop (human action, agent action,
+		# environment update) needs approximately 16ms.
+		self.test_max_timesteps = int(self.config['Experiment']['test']['max_duration']/0.016)
+		self.test_best_score = -100 -1 * self.test_max_timesteps
+		self.test_best_game_reward = self.test_best_score
+		self.test_score_history
+		self.test_game_duration_list
+
+	def run(self):
+		running_reward = 0 # total cumulative reward across all games
+		current_timestep = 0 # current timestep for each game
+		avg_length = 0
 		for i_episode in range(1, self.max_episodes + 1):
 			# At the beginning of each game, reset the environment and several variables
 			self.env.first_time = True
 			observation = self.env.get_state() # stores the state of the environment
-			reset = True # used to reset the graphics environment when a new game starts
 			self.env.timeout = False # used to check if we hit the maximum game duration
 			game_reward = 0 # keeps track of th rewards for each game
-			dist_travel = 0 # keeps track of the ball's travelled distance
-			test_offline_score = 0
+			current_timestep = 0 # timesteps for each episode
 
 			print(f'Episode: {i_episode}')
 
 			actions = [0, 0, 0, 0] # stores the pressed keys. [0, 0, 0, 0] means that no key is pressed
-			duration_pause = 0 # keeps track of the pause time
 			self.save_models = True # flag for saving RL models
 			tmp_time = 0 # used to check if 200ms have passed and the agent needs to take a new action
 
 			for timestep in range(1, self.max_timesteps + 1):
-				self.total_steps += 1
 				current_timestep += 1
 
 				# compute agent's action every 200ms
 				if time.time() - tmp_time > self.action_duration:
 					tmp_time = time.time()
-					randomness_threshold = self.config['Experiment']['stop_random_agent']
 					randomness_criterion = i_episode
-					flag = self.compute_agent_action(observation, randomness_criterion, randomness_threshold, flag)
+					self.compute_agent_action(observation, randomness_criterion)
 
 				# get human action
 				self.getKeyboard(actions)
 
+				# get joint action
 				action = self.get_action_pair()
 
+				# check if maximum number of timesteps have ellapsed
 				if timestep == self.max_timesteps:
 					self.env.timeout = True
 
@@ -100,9 +91,6 @@ class Experiment:
 
 				if timestep == 1:
 					start = time.time()
-
-				if reset:
-					reset = False
 
 				# add experience to buffer
 				interaction = [observation, self.agent_action, reward, observation_, done]
@@ -130,10 +118,12 @@ class Experiment:
 
 			# keep track of the game reward history
 			self.score_history.append(game_reward)
-			self.reward_list.append(game_reward)
 
 			# keep track of the game duration
 			self.game_duration_list.append(time.time() - start)
+
+			avg_length += current_timestep
+			avg_ep_duration = np.mean(self.game_duration_list[-self.log_interval:])
 
 			# offline learning
 			if not self.config['game']['test_model'] and i_episode >= self.config['Experiment']['start_training_on_episode']:
@@ -149,17 +139,78 @@ class Experiment:
 					if i_episode % self.config['Experiment']['test_interval'] == 0 and self.test_max_episodes > 0:
 						self.test_agent()
 
-					if not self.config['game']['test_model']:
-						running_reward, avd_length = self.print_logs(i_episode, running_reward, avg_length, log_interval, avg_ep_duration)
+			if not self.config['game']['test_model']:
+				running_reward, avd_length = self.print_logs(i_episode, running_reward, avg_length, avg_ep_duration)
 
-					current_timestep = 0
-		update_cycles = np.ceil(self.config['Experiment']['total_update_cycles'])
+
 		if update_cycles > 0:
 			try:
 				self.avg_grad_updates_duration = np.mean(self.grad_updates_durations)
 			except:
 				print("Exception when calc grad_updates_durations")
 
+
+	def test_agent(self):
+		print('Testing agent')
+		test_running_reward = 0 # total cumulative reward across all games
+		avg_length = 0
+		self.test_agent_flag = True
+
+		for i_episode in range(1, self.test_max_episodes + 1):
+			# At the beginning of each game, reset the environment and several variables
+			self.env.first_time = True
+			observation = self.env.get_state() # stores the state of the environment
+			self.env.timeout = False # used to check if we hit the maximum game duration
+			test_game_reward = 0 # keeps track of th rewards for each game
+
+			actions = [0, 0, 0, 0] # stores the pressed keys. [0, 0, 0, 0] means that no key is pressed
+			tmp_time = 0 # used to check if 200ms have passed and the agent needs to take a new action
+			test_game_reward = 0 # total reward per episode
+
+			for timestep in range(1, self.test_max_timesteps + 1):
+				# compute agent's action every 200ms
+				if time.time() - tmp_time > self.action_duration:
+					tmp_time = time.time()
+					randomness_criterion = i_episode
+					self.compute_agent_action(observation, randomness_criterion)
+
+				# get human action
+				self.getKeyboard(actions)
+
+				# get joint action
+				action = self.get_action_pair()
+
+				# check if maximum number of timesteps have ellapsed
+				if timestep == self.test_max_timesteps:
+					self.env.timeout = True
+
+				# apply co-actions
+				observation_, reward, done = self.env.step(action)
+
+				if timestep == 1:
+					start = time.time()
+
+				test_running_reward += reward
+				test_game_reward += reward
+
+				# update observed env state
+				observation = observation_
+
+				# if the game ended, proceed with the next game
+				if done:
+					break
+
+			# keep track of the best game reward
+			if self.test_best_game_reward < test_game_reward:
+				self.test_best_game_reward = test_game_reward
+
+			# keep track of the game reward history
+			self.test_score_history.append(test_game_reward)
+
+			# keep track of the game duration
+			self.test_game_duration_list.append(time.time() - start)
+			self.test_agent_flag = False
+			
 	def getKeyboard(self, actions):
 		pg.key.set_repeat(10)
 		actions = [0, 0, 0, 0]
@@ -168,12 +219,9 @@ class Experiment:
 			if event.type == pg.QUIT:
 				return
 			if event.type == pg.KEYDOWN:
-				self.last_time = time.time()
 				if event.key == pg.K_q:
 					exit(1)
 				if event.key in self.env.keys:
-					self.key_pressed_count = 0
-					self.last_pressed = self.env.keys[event.key]
 					actions = [0, 0, 0, 0]
 					actions[self.env.keys[event.key]] = 1
 			if event.type == pg.KEYUP:
@@ -200,35 +248,30 @@ class Experiment:
 			end_grad_updates = time.time()
 		return end_grad_updates - start_grad_updates
 
-	def print_logs(self, game, running_reward, avg_length, log_interval, avg_ep_duration):
-		if game % log_interval == 0:
-			avg_length = int(avg_length / log_interval)
-			log_reward = int((running_reward / log_interval))
-			print(f'Episode {game}\tTotal timesteps {self.total_steps}\tavg length: {avg_length}\tTotal reward(last {log_interval} episodes): {log_reward}\tBest Score: {self.best_score}\tavg '
+	def print_logs(self, game, running_reward, avg_length, avg_ep_duration):
+		if game % self.log_interval == 0:
+			avg_length = int(avg_length / self.log_interval)
+			log_reward = int((running_reward / self.log_interval))
+			print(f'Episode {game}\tTotal timesteps {self.total_steps}\tavg length: {avg_length}\tTotal reward(last {self.log_interval} episodes): {log_reward}\tBest Score: {self.best_score}\tavg '
                 'episode duration: {timedelta(seconds=avg_ep_duration)}')
 			running_reward = 0
 			avg_length = 0
 		return running_reward, avg_length
 
-	def compute_agent_action(self, observation, randomness_critirion=None, randomness_threshold=None, flag=True):
-		if randomness_critirion is not None and randomness_threshold is not None and randomness_critirion <= randomness_threshold:
-			# Pure exploration
-			if self.config['game']['agent_only']:
-				self.agent_action = np.random.randint(pow(2, self.env.action_space.n_actions))
-			else:
-				self.agent_action = np.random.randint(self.env.action_space.n_actions)
-			self.save_models = False
-			if flag:
-				print("Using Random Agent")
-				flag = False
-		else:
-			# Explore with actions_prob
-			self.save_models = True
+	def compute_agent_action(self, observation, randomness_criterion=None):
+		assert randomness_criterion != None, 'randomness_criterion is None'
+
+		if self.test_agent_flag:
 			self.agent_action = self.agent.actor.sample_act(observation)
-			if not flag:
-				print("Using SAC Agent")
-				flag = True
-		return flag
+		else:
+			if randomness_criterion <= self.randomness_threshold:
+				# Pure exploration
+				self.agent_action = np.random.randint(self.env.action_space.n_actions)
+				self.save_models = False
+			else:
+				# Explore with actions_prob
+				self.agent_action = self.agent.actor.sample_act(observation)
+				self.save_models = True
 
 	def get_agent_only_action(self):
 		# up: 0, down:1, left:2, right:3, upleft:4, upright:5, downleft: 6, downright:7

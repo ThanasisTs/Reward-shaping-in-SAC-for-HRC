@@ -8,6 +8,8 @@ import random
 import time
 import matplotlib.pyplot as plt
 
+from rewards import compute_reward
+
 class ActionSpace:
 	def __init__(self):
 		self.actions = [i for i in range(3)]
@@ -15,7 +17,7 @@ class ActionSpace:
 		self.n_actions = len(self.actions)
 
 class Game:
-	def __init__(self):
+	def __init__(self, controlled_variable="vel"):
 		pg.init()
 
 		self.display = (800, 800)
@@ -23,10 +25,10 @@ class Game:
 
 		self.sleep_rate = 0.01
 
-		self.start_pos = (100, 700)
+		self.start_pos = (100, 400)
 		self.start_color = (0, 255, 0)
 
-		self.end_pos = (700, 100)
+		self.end_pos = (400, 100)
 		self.end_color = (255, 0, 0)
 
 		self.radius = 30
@@ -40,26 +42,34 @@ class Game:
 		self.random_actions = [-1, 0, 1]
 
 		self.circle_color = (255, 165, 0)
-		self.actions = [0, 0, 0, 0]
 		self.delay = 15
-		self.current_pos = list(self.start_pos)
-		self.current_vel = [0, 0]
 		self.win_dis = 10
+		
+		if controlled_variable == 'vel':
+			self.cmd_vel = True
+		else:
+			self.cmd_vel = False
+			self.min_vel = -2.0
+			self.max_vel = 2.0
 
 		self.images = {}
+		image_scale = 0.2
 		for img in os.listdir('images'):
 			image = pg.image.load(os.path.join('images/' + img))
 
-			image = pg.transform.scale(image, self.scaled_dim(image, 0.3))
+			image = pg.transform.scale(image, self.scaled_dim(image, image_scale))
 			self.images.update({img : image})
 		self.images = dict(sorted(self.images.items()))
+		self.image_pos = (80, 10)
 
 		self.timeout = False
 		self.first_time = True
 
 		self.start_game_time = time.time()
-		self.trail = []
 		self.max_duration = 10
+		
+		self.current_pos = np.array(self.start_pos, dtype=np.float64)
+		self.current_vel = np.array([0, 0], dtype=np.float64)
 
 		self.observation = self.get_state()
 		self.action_space = ActionSpace()
@@ -76,17 +86,19 @@ class Game:
 		return distance.euclidean(self.current_pos, self.end_pos)
 
 	def reset_game(self):
-		self.current_pos = list(self.start_pos)
+		self.goal_reached = False
+		self.current_pos = np.array(self.start_pos, dtype=np.float64)
+		self.current_vel = np.array([0, 0], dtype=np.float64)
 		self.actions = [0, 0, 0, 0]
 		self.trail = []
 		self.done = False
 		i = 0
 		if not self.first_time:
 			if self.timeout:
-				self.screen.blit(list(self.images.values())[-1], (50, 150))
+				self.screen.blit(list(self.images.values())[-1], self.image_pos)
 				self.timeout = False
 			else:
-				self.screen.blit(list(self.images.values())[-3], (50, 150))
+				self.screen.blit(list(self.images.values())[-3], self.image_pos)
 			pg.display.flip()
 			time.sleep(3)
 		else:
@@ -98,12 +110,12 @@ class Game:
 			pg.draw.circle(self.screen, self.end_color, self.end_pos, self.radius)
 			pg.draw.line(self.screen, self.line_color, self.start_pos, self.end_pos)
 			pg.draw.circle(self.screen, self.circle_color, self.current_pos, 5)
-			self.screen.blit(list(self.images.values())[4-i], (50, 150))
+			self.screen.blit(list(self.images.values())[4-i], self.image_pos)
 			i += 1
 			pg.display.flip()
 			time.sleep(1)
 			
-		self.screen.blit(self.images['play.png'], (50, 150))
+		self.screen.blit(self.images['play.png'], self.image_pos)
 		pg.display.flip()
 		time.sleep(1)
 		pg.event.clear()
@@ -125,10 +137,6 @@ class Game:
 		if self.first_time:
 			self.reset_game()
 			
-		self.current_vel = np.array(action)
-		self.current_vel[self.current_vel==2] = -1
-		
-
 		time.sleep(self.sleep_rate)
 		self.screen.fill((105,105,105))
 		pg.draw.circle(self.screen, self.start_color, self.start_pos, self.radius)
@@ -136,19 +144,24 @@ class Game:
 		pg.draw.line(self.screen, self.line_color, self.start_pos, self.end_pos)
 		pg.draw.circle(self.screen, self.circle_color, self.current_pos, 5)
 
-		self.current_pos[0] += self.current_vel[0]
-		self.current_pos[1] += self.current_vel[1]
+		if self.cmd_vel:
+			self.current_vel = np.array(action)
+			self.current_vel[self.current_vel==2] = -1
+		else:
+			self.current_acc = np.array(action, dtype=np.float64)
+			self.current_acc[self.current_acc == 2] = -1.0
+			self.current_vel += 0.03*self.current_acc
+			self.current_vel = np.clip(self.current_vel, self.min_vel, self.max_vel)
+
+		self.current_pos += self.current_vel
 		self.current_pos = np.clip(self.current_pos, self.min_pos, self.max_pos)
 		self.trail.append(self.current_pos)
+		pg.display.flip()
 
 		if self.goal_dis() < self.win_dis or self.timeout:
+			if self.goal_dis() < self.win_dis:
+				self.goal_reached = True
 			self.done = True
 
-		pg.display.flip()
-		reward = 1
+		reward = compute_reward(self.goal_reached)
 		return self.get_state(), reward, self.done
-
-
-# if __name__ == '__main__':
-# 	game = Game()
-# 	game.step()

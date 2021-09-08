@@ -26,7 +26,7 @@ class Experiment:
 		self.agent_actions = [0, 0]
 		self.save_models = None
 		self.avg_length = 0
-		self.update_cycles = np.ceil(self.config['Experiment']['total_update_cycles'])
+		self.update_cycles = self.config['Experiment']['total_update_cycles']
 		self.action_duration = self.config['Experiment']['action_duration']
 		self.max_episodes = self.config['Experiment']['max_episodes']
 
@@ -100,7 +100,7 @@ class Experiment:
 				game_reward += reward
 
 				# online learning
-				if not self.config['game']['test_model']:
+				if not self.config['Game']['test_model']:
 					if self.config['Experiment']['online_updates'] and i_episode > self.config['Experiment']['start_training_on_episode']:
 						self.agent.learn()
 						self.agent.soft_upadte_target()
@@ -126,7 +126,7 @@ class Experiment:
 			avg_ep_duration = np.mean(self.game_duration_list[-self.log_interval:])
 
 			# offline learning
-			if not self.config['game']['test_model'] and i_episode >= self.config['Experiment']['start_training_on_episode']:
+			if not self.config['Game']['test_model'] and i_episode >= self.config['Experiment']['start_training_on_episode']:
 				if i_episode % self.agent.update_interval == 0:
 					self.updates_scheduler()
 					if self.update_cycles > 0:
@@ -139,7 +139,7 @@ class Experiment:
 					if i_episode % self.config['Experiment']['test_interval'] == 0 and self.test_max_episodes > 0:
 						self.test_agent()
 
-			if not self.config['game']['test_model']:
+			if not self.config['Game']['test_model']:
 				running_reward, avd_length = self.print_logs(i_episode, running_reward, avg_length, avg_ep_duration)
 
 
@@ -273,68 +273,12 @@ class Experiment:
 				self.agent_action = self.agent.actor.sample_act(observation)
 				self.save_models = True
 
-	def get_agent_only_action(self):
-		# up: 0, down:1, left:2, right:3, upleft:4, upright:5, downleft: 6, downright:7
-		if self.agent_action == 0:
-			return [1, 0]
-		elif self.agent_action == 1:
-			return [-1, 0]
-		elif self.agent_action == 2:
-			return [0, -1]
-		elif self.agent_action == 3:
-			return [0, 1]
-		elif self.agent_action == 4:
-			return [1, -1]
-		elif self.agent_action == 5:
-			return [1, 1]
-		elif self.agent_action == 6:
-			return [-1, -1]
-		elif self.agent_action == 7:
-			return [-1, 1]
-		else:
-			print("Invalid agent action")
-
 	def updates_scheduler(self):
 		update_list = [22000, 1000, 1000, 1000, 1000, 1000, 1000]
 		total_update_cycles = self.config['Experiment']['total_update_cycles']
 		online_updates = 0
+		
 		if self.config['Experiment']['online_updates']:
-			online_updates = self.max_timesteps * (
-				self.max_episodes - self.config['Experiment']['max_episodes_mode']['start_training_step_on_episode'])
-		if self.update_cycles is None:
-			self.update_cycles = total_update_cycles - online_updates
-		if self.config['Experiment']['scheduling'] == "descending":
-			self.counter += 1
-			if not (math.ceil(self.max_episodes / self.agent.update_interval) == self.counter):
-				self.update_cycles /= 2
-		elif self.config['Experiment']['scheduling'] == "big_first":
-			if self.config['Experiment']['online_updates']:
-				if self.counter == 1:
-					self.update_cycles = update_list[self.counter]
-				else:
-					self.update_cycles = 0
-			else:
-				self.update_cycles = update_list[self.counter]
-				self.counter += 1
-		else:
-			print(self.max_episodes, self.agent.update_interval)
-			self.update_cycles = (total_update_cycles - online_updates) / math.ceil(
-				self.max_episodes / self.agent.update_interval)
-		self.update_cycles = math.ceil(self.update_cycles)
+			online_updates = self.max_timesteps * (self.max_episodes - self.config['Experiment']['start_training_step_on_episode'])
 
-	def convert_actions(self, actions):
-	    # gets a list of 4 elements. it is called from getKeyboard()
-	    action = []
-	    if actions[0] == 1:
-	        action.append(1)
-	    elif actions[1] == 1:
-	        action.append(2)
-	    else:
-	        action.append(0)
-	    if actions[2] == 1:
-	        action.append(1)
-	    elif actions[3] == 1:
-	        action.append(2)
-	    else:
-	        action.append(0)
-	    return action
+		self.update_cycles = math.ceil((total_update_cycles - online_updates) / math.ceil(self.max_episodes / self.agent.update_interval))

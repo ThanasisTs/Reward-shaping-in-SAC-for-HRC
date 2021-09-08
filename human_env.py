@@ -42,8 +42,8 @@ def reset_game(first_time = False):
 	pg.event.clear()
 
 def getKeyboard(delay=10):
-	global current_pos, keys, keys_pressed
-	pg.key.set_repeat(delay)
+	global current_pos, current_vel, keys, keys_pressed
+	# pg.key.set_repeat(delay)
 	for event in pg.event.get():
 		if event.type == pg.QUIT:
 			run = False
@@ -54,9 +54,7 @@ def getKeyboard(delay=10):
 			if event.key in keys:
 				keys_pressed[keys[event.key]] = 0
 
-		current_pos[1] += keys_pressed[1] - keys_pressed[0]
-		current_pos[0] += keys_pressed[3] - keys_pressed[2]
-		current_pos = np.clip(current_pos, min_pos, max_pos)
+
 		
 
 pg.init()
@@ -83,6 +81,7 @@ circle_color = (255, 165, 0)
 keys_pressed = [0, 0, 0, 0]
 delay = 15
 current_pos = list(start_pos)
+current_vel = [0, 0]
 
 images = {}
 for img in os.listdir('images'):
@@ -105,6 +104,14 @@ while run:
 	pg.draw.circle(screen, circle_color, current_pos, 5)
 
 	getKeyboard(delay)
+	
+	current_vel[1] += 0.001*(keys_pressed[1] - keys_pressed[0])
+	current_vel[0] += 0.001*(keys_pressed[3] - keys_pressed[2])
+
+	current_pos[1] += current_vel[1]
+	current_pos[0] += current_vel[0]
+
+	current_pos = np.clip(current_pos, min_pos, max_pos)
 
 	if time.time() - start_game_time >= 10:
 		timeout = True
@@ -114,3 +121,4 @@ while run:
 		start_game_time = time.time()
 
 	pg.display.flip()
+

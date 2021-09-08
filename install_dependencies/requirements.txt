@@ -5,8 +5,5 @@ scipy
 sklearn
 matplotlib
 pygame
-tensorboard
-pybullet
-gym
 pyyaml
 tqdm

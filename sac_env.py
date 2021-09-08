@@ -25,17 +25,20 @@ class Game:
 
 		self.sleep_rate = 0.01
 
-		self.start_pos = (100, 400)
+		self.rect_data = (70, 70, 660, 660)
+		self.rect_color = (0, 0, 0)
+
+		self.start_pos = (100, 700)
 		self.start_color = (0, 255, 0)
 
-		self.end_pos = (400, 100)
+		self.end_pos = (400, 400)
 		self.end_color = (255, 0, 0)
 
 		self.radius = 30
 
 		self.line_color = (0, 0, 255)
 
-		self.min_pos, self.max_pos = 100, 700
+		self.min_pos, self.max_pos = 75, 725
 
 		self.running = True
 		self.keys = {pg.K_UP : 0, pg.K_DOWN : 1}
@@ -49,8 +52,8 @@ class Game:
 			self.cmd_vel = True
 		else:
 			self.cmd_vel = False
-			self.min_vel = -2.0
-			self.max_vel = 2.0
+			self.min_vel = -4.0
+			self.max_vel = 4.0
 
 		self.images = {}
 		image_scale = 0.2
@@ -60,7 +63,7 @@ class Game:
 			image = pg.transform.scale(image, self.scaled_dim(image, image_scale))
 			self.images.update({img : image})
 		self.images = dict(sorted(self.images.items()))
-		self.image_pos = (80, 10)
+		self.image_pos = (230, 10)
 
 		self.timeout = False
 		self.first_time = True
@@ -106,6 +109,7 @@ class Game:
 		self.start_time = time.time()
 		while time.time() - self.start_time <= 5:
 			self.screen.fill((105,105,105))
+			pg.draw.rect(self.screen, self.rect_color, self.rect_data, width=1)
 			pg.draw.circle(self.screen, self.start_color, self.start_pos, self.radius)
 			pg.draw.circle(self.screen, self.end_color, self.end_pos, self.radius)
 			pg.draw.line(self.screen, self.line_color, self.start_pos, self.end_pos)
@@ -139,6 +143,7 @@ class Game:
 			
 		time.sleep(self.sleep_rate)
 		self.screen.fill((105,105,105))
+		pg.draw.rect(self.screen, self.rect_color, self.rect_data, width=1)
 		pg.draw.circle(self.screen, self.start_color, self.start_pos, self.radius)
 		pg.draw.circle(self.screen, self.end_color, self.end_pos, self.radius)
 		pg.draw.line(self.screen, self.line_color, self.start_pos, self.end_pos)
@@ -155,6 +160,12 @@ class Game:
 
 		self.current_pos += self.current_vel
 		self.current_pos = np.clip(self.current_pos, self.min_pos, self.max_pos)
+		if self.current_pos[0] in [self.min_pos, self.max_pos]:
+			self.current_vel[0] = 0
+
+		if self.current_pos[1] in [self.min_pos, self.max_pos]:
+			self.current_vel[1] = 0
+
 		self.trail.append(self.current_pos)
 		pg.display.flip()
 

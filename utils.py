@@ -25,19 +25,14 @@ def get_plot_and_chkpt_dir(config):
 
     plot_dir = None
     if not load_checkpoint:
-    	rl_model_dir = str(int(total_number_updates / 1000)) + 'K_every' + str(learn_every) + '_' \
-                    + '_' + participant
-
+        rl_model_dir = str(int(total_number_updates / 1000)) + 'K_every' + str(learn_every) + '_' + '_' + participant
         chkpt_dir = 'data/'+ rl_model_dir
-
         plot_dir = 'plots/' + rl_model_dir
-
         i = 1
         while os.path.exists(chkpt_dir + '_' + str(i)):
             i += 1
         os.makedirs(chkpt_dir + '_' + str(i))
         chkpt_dir = chkpt_dir + '_' + str(i)
-
         j = 1
         while os.path.exists(plot_dir + '_' + str(j)):
             j += 1
@@ -46,7 +41,6 @@ def get_plot_and_chkpt_dir(config):
     else:
         print("Loading Model from checkpoint {}".format(load_checkpoint_name))
         chkpt_dir = load_checkpoint_name
-
     return rl_model_dir, chkpt_dir, plot_dir, load_checkpoint_name
 
 

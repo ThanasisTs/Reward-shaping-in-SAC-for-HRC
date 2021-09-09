@@ -46,8 +46,8 @@ class Experiment:
 		self.test_max_timesteps = int(self.config['Experiment']['test']['max_duration']/0.016)
 		self.test_best_score = -100 -1 * self.test_max_timesteps
 		self.test_best_game_reward = self.test_best_score
-		self.test_score_history
-		self.test_game_duration_list
+		self.test_score_history = []
+		self.test_game_duration_list = []
 
 	def run(self):
 		running_reward = 0 # total cumulative reward across all games
@@ -274,7 +274,6 @@ class Experiment:
 				self.save_models = True
 
 	def updates_scheduler(self):
-		update_list = [22000, 1000, 1000, 1000, 1000, 1000, 1000]
 		total_update_cycles = self.config['Experiment']['total_update_cycles']
 		online_updates = 0
 		

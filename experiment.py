@@ -11,6 +11,11 @@ class Experiment:
 		self.config = config
 		self.agent = agent
 		self.trained_agent = trained_agent
+		try:
+			self.trained_agent.load_models()
+		except Exception as e:
+			print(e)
+			
 		self.best_score = None
 		self.best_game_reward = None
 		self.total_steps = 0

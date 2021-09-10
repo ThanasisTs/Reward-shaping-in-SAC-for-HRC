@@ -3,7 +3,8 @@ Game:
   participant_name: "thanasis"
   test_model: False # True if no training happens
   checkpoint_name: "sac_20201216_17-25-51" # Date and time of the experiments. Used loading the model created that date (if asked by the user) 
-  load_checkpoint: False # True if loading stored model
+  load_checkpoint: True # True if loading stored model
+  load_checkpoint_dir: "28K_every10__thanasis"
   save: True # Save models and logs
 
 SAC:

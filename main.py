@@ -24,16 +24,19 @@ def main():
 	# create game environment
 	game = Game(controlled_variable=config['Game']['controlled_variable'])
 
-	if config['Game']['save']:
-		rl_model_dir, chkpt_dir, plot_dir, load_checkpoint_name = get_plot_and_chkpt_dir(config)
 
 	# create SAC agent
-	sac = getSACAgent(config, game, rl_model_dir)
+	save_chkpt_dir = get_save_dir(config)
+	sac = getSACAgent(config, game, save_chkpt_dir)
+
+	# create trained SAC agent if asked
+	if config['Game']['load_checkpoint']:
+		trained_sac = getSACAgent(config, game, config['Game']['load_checkpoint_dir'])
 
 	start_experiment_time = time.time()
 
 	# create experiment
-	experiment = Experiment(game, sac, config=config)
+	experiment = Experiment(env=game, agent=sac, config=config, trained_agent=trained_sac)
 	experiment.run()
 
 	end_experiment_time = time.time()

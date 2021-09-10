@@ -6,10 +6,11 @@ import pygame as pg
 import math
 
 class Experiment:
-	def __init__(self, env, agent=None, load_models=False, config=None):
+	def __init__(self, env, agent=None, trained_agent=None, load_models=False, config=None):
 		self.env = env
 		self.config = config
 		self.agent = agent
+		self.trained_agent = trained_agent
 		self.best_score = None
 		self.best_game_reward = None
 		self.total_steps = 0
@@ -39,10 +40,11 @@ class Experiment:
 		self.test_agent_flag = False
 		self.log_interval = self.config['Experiment']['log_interval']
 
-		self.test_max_episodes = self.config['Experiment']['test']['max_episodes']
+		self.ppr_threshold = 0.7
 
 		# The max number of timesteps depends on the maximum episode duration. Each loop (human action, agent action,
 		# environment update) needs approximately 16ms.
+		self.test_max_episodes = self.config['Experiment']['test']['max_episodes']
 		self.test_max_timesteps = int(self.config['Experiment']['test']['max_duration']/0.016)
 		self.test_best_score = -100 -1 * self.test_max_timesteps
 		self.test_best_game_reward = self.test_best_score
@@ -124,6 +126,8 @@ class Experiment:
 
 			avg_length += current_timestep
 			avg_ep_duration = np.mean(self.game_duration_list[-self.log_interval:])
+
+			self.ppr_threshold -= 0.01
 
 			# offline learning
 			if not self.config['Game']['test_model'] and i_episode >= self.config['Experiment']['start_training_on_episode']:
@@ -264,14 +268,21 @@ class Experiment:
 		if self.test_agent_flag:
 			self.agent_action = self.agent.actor.sample_act(observation)
 		else:
-			if randomness_criterion <= self.randomness_threshold:
-				# Pure exploration
-				self.agent_action = np.random.randint(self.env.action_space.n_actions)
-				self.save_models = False
-			else:
-				# Explore with actions_prob
-				self.agent_action = self.agent.actor.sample_act(observation)
+			self.ppr_criterion = np.random.randint(100)/100
+			if self.ppr_criterion < self.ppr_threshold:
+				print('ppr')
+				self.agent_action = self.trained_agent.actor.sample_act(observation)
 				self.save_models = True
+			else:
+				print('e-greedy')
+				if randomness_criterion <= self.randomness_threshold:
+					# Pure exploration
+					self.agent_action = np.random.randint(self.env.action_space.n_actions)
+					self.save_models = False
+				else:
+					# Explore with actions_prob
+					self.agent_action = self.agent.actor.sample_act(observation)
+					self.save_models = True
 
 	def updates_scheduler(self):
 		total_update_cycles = self.config['Experiment']['total_update_cycles']
